@@ -8,7 +8,7 @@
     - Scoring System
     - Precise Collisions
     
-  To play this game open a P5.js enviroment (Going to https://editor.p5js.org/), copy all the code below and push the play button
+  To play this game open a P5.js enviroment (Going to https://editor.p5js.org/),       copy all the code below and push the play button
 */
 
 // Cuadrado del Personaje
@@ -409,7 +409,6 @@ function generarPowerUps(PowerUps, caja)
     else
     {
       // Si la hay, lo aviso y "reinicio" esa vuelta
-      console.log("Encontre un powerUp en mi lugar")
       i--
     }
   }
@@ -435,7 +434,6 @@ function generarPowerUps(PowerUps, caja)
     else
     {
       // Si la hay, lo aviso y "reinicio" esa vuelta
-      console.log("Encontre un powerUp en mi lugar")
       j--
     }
   }
