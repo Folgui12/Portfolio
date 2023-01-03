@@ -1,0 +1,640 @@
+/*
+  This game has many features as:
+    - Coyotetime
+    - Jumpbuffer
+    - Boost portals
+    - Slow portals
+    - Random Generated Platforms
+    - Scoring System
+    - Precise Collisions
+    
+  To play this game open a P5.js enviroment (Going to https://editor.p5js.org/), copy all the code below and push the play button
+*/
+
+// Cuadrado del Personaje
+var pj = {
+  pos: {x: 50, y: 300},
+  tam: {w: 40, h: 40},
+  vel: {x: 0, y: 0},
+  ace: {x: 0, y: 0},
+  masa: 1,
+  midAir: false,
+  coyoteTime: 0.2,
+  contadorCoyoteTime: 0,
+  bufferTime: 0.3,
+  contadorBufferTime: 0,
+}
+
+// Mapa de juego, plataforma y obstáculos
+var plat = {
+    caja: [
+      {
+        pos: {x: 0, y: 350},
+        tam: {w: 10000, h: 60}, 
+      },
+      {
+        pos: {x: 350, y: 315}, 
+        tam: {w: 150, h: 35},
+      }
+    ]
+};
+
+// Arbol de Adorno
+var arbol = {
+  pos: {x: 100, y: 100},
+  tam: {w: 20, h: 50}
+}
+
+// Arbol de Adorno
+var arbol2 = {
+  pos: {x: 200, y: 150},
+  tam: {w: 20, h: 50}
+}
+
+// Cámara que acompaña al jugador
+var camara = {
+  pos: {x: pj.pos.x - 50, y: 0},
+  vel: {x: 0, y: 0},
+  ace: {x: 0, y: 0},
+  masa: 1
+}
+
+// Texto de Perdiste
+var Cartel = {
+  pos: {x: 185, y: 200},
+  tam: {w: 40, h: 40},
+}
+
+// Moneda a recolectar
+var coin = [{
+  pos: {x: 200, y: 315},
+  radio: 15,
+  active: true
+}]
+
+var PowerUps = {
+  impulso: [{
+  pos: {x: 300, y: 270},
+  tam: {w: 20, h: 70},
+  active: true
+  }],
+  slow: [{
+  pos: {x: 800, y: 270},
+  tam: {w: 20, h: 70}, 
+  active: true
+  }],
+}
+
+
+var velDeseada = 200; // Velocidad máxima del jugador y cámara
+var grav = 100; // gravedad aplicada al jugador de forma constante
+var saltoActual = 130; // La velocidad mínima que puede tomar el personaje hacia arriba
+var saltoMaximo = 220; // La velocidad maxima que puede tomar el personaje hacia arriba
+var lose = false // La variable que controla si el jugador perdió
+var win = false // La variable que controla si el jugador ganó
+var Puntuacion = 0; // Puntuación del jugador
+var cantObstaculos = 30; // Cantidad de obstáculos que se van a crear sobre la plataforma
+var cantMonedas = cantObstaculos; // Cantidad de monedas
+var gravedadCaida = 250; // Gravedad aumentada para el momento donde el jugador necesite saltar más
+var speedDown = false;
+var boost = false;
+var speedDownTime = 0;
+var plusTime = 0;
+var cantBoost = 10;
+var cantSlows = 10;
+
+function setup() {
+  createCanvas(600, 400);
+}
+
+function draw() {
+  background(200, 255, 255);
+  
+  var dt = deltaTime / 1000
+  
+  if(!lose && !win)
+  {
+    // Genero las cajas y monedas
+    if(plat.caja.length < 3)
+    {
+      generarCajas(plat.caja)
+    }
+    if(coin.length < 2)
+    {
+      generarMonedas(coin, plat.caja)
+    }
+    if(PowerUps.impulso.length < 2 && PowerUps.slow.length < 2)
+    {
+      generarPowerUps(PowerUps, plat.caja)
+    }
+    
+    
+    // Descuento el tiempo Coyote para poder saltar
+    if(pj.contadorCoyoteTime > 0)
+    {
+      pj.contadorCoyoteTime -= dt
+      if(pj.contadorCoyoteTime <= 0)
+      {
+        pj.contadorCoyoteTime = 0
+      }
+    }
+    
+    // Descuento el tiempo del Buffer para poder saltar
+    if (pj.contadorBufferTime > 0) 
+    {
+      pj.contadorBufferTime -= dt
+      if (pj.contadorBufferTime <= 0) 
+      {
+        pj.contadorBufferTime = 0
+      }
+    }
+    
+    aplicarFuerza(pj, 0, grav * pj.masa)
+    
+    if (keyIsDown(UP_ARROW) == false) {
+      if (pj.vel.y < 0) {
+        aplicarFuerza(pj, 0, saltoMaximo)
+      }
+    }
+    if (pj.vel.y > 0) {
+      aplicarFuerza(pj, 0, gravedadCaida)
+    }
+    
+    if(pj.vel.x > velDeseada)
+    {
+      aplicarFuerza(pj, -50, 0)
+    }
+    
+    if(camara.vel.x > velDeseada)
+    {
+      aplicarFuerza(camara, -50, 0)
+    }
+    
+    if(pj.vel.x < velDeseada)
+    {
+      aplicarFuerza(pj, 50, 0)
+    }
+    
+    if(camara.vel.x < velDeseada)
+    {
+      aplicarFuerza(camara, 50, 0)
+    }
+
+    // Permito o no que el jugador salte
+    if(pj.vel.y != 0 && pj.contadorCoyoteTime <= 0)
+    {
+      pj.midAir = true
+    }
+  
+    // Empujon de "Ayuda" para el jugador si se traba, pero logra salir
+    if(pj.pos.x < camara.pos.x) {
+      pj.vel.x = 250
+    }
+    
+    // Condiciones de Victoria o Derrota
+    if(pj.pos.x < camara.pos.x - pj.tam.w - 10)
+    {
+      lose = true
+    }
+    
+    if(Puntuacion >= 25)
+    {
+      win = true;
+    }
+
+    // Detecto Colisiones y movimientos
+    velocidadCamara(camara, dt)
+    movimientoPersonaje(pj, dt)
+    ColicionMonedas(pj, coin)
+    ColicionSlow(pj, PowerUps.slow, dt, camara)
+    ColicionAceleracion(pj, PowerUps.impulso, dt, camara)
+
+    // Creo nuevos árboles
+    if(arbol.pos.x + arbol.tam.w / 2 - camara.pos.x <= 0)
+    {
+      arbol = nuevoArbol(camara)
+    }
+    
+    if(arbol2.pos.x + arbol2.tam.w / 2 - camara.pos.x <= 0)
+    {
+      arbol2 = nuevoArbol(camara)
+    }
+
+    //Dibujo todo lo que se ve
+    fill("brown")
+    rect(arbol.pos.x - camara.pos.x, arbol.pos.y, arbol.tam.w, arbol.tam.h)
+    fill("green")
+    circle(arbol.pos.x + arbol.tam.w / 2 - camara.pos.x, arbol.pos.y, 40)
+    fill("brown")
+    rect(arbol2.pos.x - camara.pos.x, arbol2.pos.y, arbol2.tam.w, arbol2.tam.h)
+    fill("green")
+    circle(arbol2.pos.x + arbol2.tam.w / 2 - camara.pos.x, arbol2.pos.y, 40)
+
+    
+    // Dibujo los PowerUps
+    for(var i = 0; i < PowerUps.impulso.length; i++)
+    {
+      fill(0, 0, 255, 150)
+      rect(PowerUps.impulso[i].pos.x - camara.pos.x, PowerUps.impulso[i].pos.y - camara.pos.y, 
+            PowerUps.impulso[i].tam.w, PowerUps.impulso[i].tam.h)
+    }
+    
+    for(var k = 0; k < PowerUps.slow.length; k++)
+    {
+      fill(0, 255, 0, 150)
+      rect(PowerUps.slow[k].pos.x - camara.pos.x, PowerUps.slow[k].pos.y - camara.pos.y, 
+            PowerUps.slow[k].tam.w, PowerUps.slow[k].tam.h)
+      
+    }
+    
+    // Dibujo las monedas
+    for(var i = 0; i < coin.length; i++)
+    {
+      if(coin[i].active)
+      {
+        fill("yellow")
+        circle(coin[i].pos.x - camara.pos.x, coin[i].pos.y, coin[i].radio*2)
+      }
+    }
+    
+    fill("brown")
+    rect(plat.caja[0].pos.x - camara.pos.x, plat.caja[0].pos.y - camara.pos.y,
+         plat.caja[0].tam.w, plat.caja[0].tam.h)
+  
+    fill("black")
+    for(var j = 1; j < plat.caja.length; j++)
+    {
+      rect(plat.caja[j].pos.x - camara.pos.x, plat.caja[j].pos.y - camara.pos.y,
+           plat.caja[j].tam.w, plat.caja[j].tam.h)
+    }
+    fill("lightgreen")
+    rect(pj.pos.x - camara.pos.x, pj.pos.y - camara.pos.y, pj.tam.w, pj.tam.h)
+    fill("black")
+    text("Puntuación: "+ Puntuacion, 10, 20)
+    text("Velocidad Personaje: "+ pj.vel.x, 10, 40)
+    text("Velocidad Camara: "+ camara.vel.x, 10, 60)
+  }
+  else if(lose)
+  {
+    fill("red")
+    textSize(40)
+    text("YOU LOSE", Cartel.pos.x, Cartel.pos.y)
+  }
+  else if(win)
+  {
+    fill("blue")
+    textSize(40)
+    text("YOU WIN", Cartel.pos.x + 20, Cartel.pos.y)
+  }
+}
+
+// Función para aplicar una fuerza
+function aplicarFuerza(obj, fx, fy)
+{
+  obj.ace.x += fx / obj.masa
+  obj.ace.y += fy / obj.masa
+}
+
+// Función donde controlo el movimiento del jugador
+function movimientoPersonaje(obj, dt)
+{
+  // Calculo la velocidad
+  obj.vel.x += obj.ace.x * dt
+  obj.vel.y += obj.ace.y * dt
+  
+  // Calculo la siguiente posición del jugador en X
+  var sigX = obj.pos.x + obj.vel.x * dt;
+  if(areaOcupada(sigX, obj.pos.y, obj.tam.w, obj.tam.h, "caja"))
+  {
+    var direccionX = sign(obj.vel.x)
+    if(direccionX != 0)
+    {
+      while(!areaOcupada(obj.pos.x + direccionX, obj.pos.y, obj.tam.w, obj.tam.h, "caja"))
+      {
+        obj.pos.x += direccionX
+      }
+    }
+    obj.vel.x = 0
+  }
+  obj.pos.x += obj.vel.x * dt
+  
+  // Calculo la siguiente posición del jugador en Y
+  var sigY = obj.pos.y + obj.vel.y * dt;
+  if(areaOcupada(obj.pos.x, sigY, obj.tam.w, obj.tam.h, "caja"))
+  {
+    var direccionY = sign(obj.vel.y)
+    if(direccionY != 0)
+    {
+      while(!areaOcupada(obj.pos.x, obj.pos.y + direccionY, obj.tam.w, obj.tam.h, "caja"))
+      {
+        obj.pos.y += direccionY  
+      }
+    }
+    obj.contadorCoyoteTime = obj.coyoteTime
+    obj.midAir = false
+    obj.vel.y = 0
+    if (obj.contadorBufferTime > 0) {
+      saltar()
+    }
+  }
+  obj.pos.y += obj.vel.y * dt
+  
+  // Reseteo la aceleración
+  obj.ace.x = 0
+  obj.ace.y = 0
+}
+
+// LLevo la velocidad de la cámara de forma tradicional
+function velocidadCamara(cam, dt)
+{
+  cam.vel.x += cam.ace.x * dt
+  cam.vel.y += cam.ace.y * dt
+  cam.pos.x += cam.vel.x * dt
+  cam.pos.y += cam.vel.y * dt
+  
+  cam.ace.x = 0
+  cam.ace.y = 0
+}
+
+// Genero los obstáculos que estarán sobre la plataforma
+function generarCajas(caja)
+{ 
+  // Empiezo desde el 2, porque en el 0 tengo la base del mapa y en el 1 tengo un obstáculo "de prueba"
+  for(var i = 2; i < cantObstaculos; i++)
+  {
+    // Creo una caja
+    var cajaAux = { 
+      pos: {x: random(caja[0].pos.x + 500, (caja[0].pos.x + caja[0].tam.w) - 80), 
+            y: random(290, 330)},
+      tam: {w: random(50, 80), h: 10}
+    }
+    
+    // Compruebo que en el lugar de esa caja, no haya una caja ya creada
+    if(!areaOcupada(cajaAux.pos.x, cajaAux.pos.y, 
+                   cajaAux.tam.w, cajaAux.tam.h, "caja"))
+    {
+      // Si no lo hay, la agrego al array
+      caja.push(cajaAux)
+    }
+    else
+    {
+      // Si la hay, lo aviso y "reinicio" esa vuelta
+      i--
+    }
+  }
+}
+
+// Genero los Boost y Slows
+function generarPowerUps(PowerUps, caja)
+{
+  for(var i = 0; i < cantBoost; i++)
+  {
+    var boost = { 
+      pos: {x: random(caja[0].pos.x + 500, (caja[0].pos.x + caja[0].tam.w) - 80), 
+            y: 270},
+      tam: {w: 20, h: 70}, 
+      active: true
+    }
+    
+    if( !areaOcupada(boost.pos.x, boost.pos.y, 
+                   boost.tam.w, boost.tam.h, "PowerS") && 
+        !areaOcupada(boost.pos.x, boost.pos.y, 
+                   boost.tam.w, boost.tam.h, "caja") && 
+        !areaOcupada(boost.pos.x, boost.pos.y, 
+                   boost.tam.w, boost.tam.h, "PowerB"))
+    {
+      // Si no lo hay, la agrego al array
+      PowerUps.impulso.push(boost)
+    }
+    else
+    {
+      // Si la hay, lo aviso y "reinicio" esa vuelta
+      console.log("Encontre un powerUp en mi lugar")
+      i--
+    }
+  }
+  for(var j = 0; j < cantSlows; j++)
+  {
+    var slow = {
+      pos: {x: random(caja[0].pos.x + 500, (caja[0].pos.x + caja[0].tam.w) - 80), 
+            y: 270},
+      tam: {w: 20, h: 70}, 
+      active: true
+    }
+    
+    if( !areaOcupada(slow.pos.x, slow.pos.y, 
+                   slow.tam.w, slow.tam.h, "PowerS") && 
+        !areaOcupada(slow.pos.x, slow.pos.y, 
+                   slow.tam.w, slow.tam.h, "caja") && 
+        !areaOcupada(slow.pos.x, slow.pos.y, 
+                   slow.tam.w, slow.tam.h, "PowerB"))
+    {
+      // Si no lo hay, la agrego al array
+      PowerUps.slow.push(slow)
+    }
+    else
+    {
+      // Si la hay, lo aviso y "reinicio" esa vuelta
+      console.log("Encontre un powerUp en mi lugar")
+      j--
+    }
+  }
+}
+
+// Creo objetos moneda y los agrego al array de Monedas
+function generarMonedas(coin, caja)
+{ 
+  for(var i = 1; i < cantMonedas; i++)
+  {
+    coin.push({ 
+      pos: {x: caja[i].pos.x + caja[i].tam.w/2, y: caja[i].pos.y - 20},
+      radio: 15,
+      active: true
+    })
+  }
+}
+
+// Genero un nuevo arbol para nunca quedarme sin "fondo"
+function nuevoArbol(cam)
+{
+  return {
+    pos: {x: random(500, 600) + cam.pos.x, y: random(100, 250)},
+    tam: {w: random(15, 25), h: random(35, 50)}
+  }
+}
+
+// Función que me ayuda a saber si en un determinado área hay un objeto o no
+function areaOcupada(xprueba, yprueba, wprueba, hprueba, objeto) {
+  var rectanguloPrueba = {
+    pos: {x: xprueba, y: yprueba},
+    tam: {w: wprueba, h: hprueba}
+  };
+  
+  // Colision del personaje con las plataformas o Las plataformas entre ellas
+  if(objeto == "caja")
+  {
+    for (var i = 0; i < plat.caja.length; i++) {
+      if (colisionRectanguloRectangulo(rectanguloPrueba, plat.caja[i])) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  // Colision del personaje con los impulsos
+  if(objeto == "impulso")
+  {
+    if(colisionRectanguloRectangulo(rectanguloPrueba, pj)) {
+      return true;
+    }
+    return false;
+  }
+  
+  // Colision del personaje con los Slows
+  if(objeto == "slow")
+  {
+    if(colisionRectanguloRectangulo(rectanguloPrueba, pj)) {
+      return true;
+    }
+    return false;
+  }
+  
+  // Colision de los impulsos entre sí, para que no solapen
+  if(objeto == "PowerB")
+  {
+    for (var t = 0; t < PowerUps.impulso.length; t++) {
+      if(colisionRectanguloRectangulo(rectanguloPrueba, PowerUps.impulso[t])) {
+        return true;
+      }
+      return false;
+    }
+  }
+  
+  //Colision de los Slows entre sí, para que no solapen
+  if(objeto == "PowerS")
+  {
+    for (var m = 0; m < PowerUps.slow.length; m++) {
+      if(colisionRectanguloRectangulo(rectanguloPrueba, PowerUps.slow[m])) {
+        return true;
+      }
+      return false;
+    }
+  }
+}
+
+// Función que me devuelve Verdadero si existe colisión y Falso si no
+function colisionRectanguloRectangulo(r1, r2) {
+  return (
+    r1.pos.x < r2.pos.x + r2.tam.w &&
+    r1.pos.y < r2.pos.y + r2.tam.h &&
+    (r1.pos.x + r1.tam.w) > r2.pos.x &&
+    (r1.pos.y + r1.tam.h) > r2.pos.y
+  );
+}
+
+// Función qu me devuelve si un número es negativo o positivo
+function sign(n)
+{
+  if(n < 0)
+  {
+    return -1
+  }
+  if(n > 0)
+  {
+    return 1
+  }
+  return 0
+}
+
+// Función para calcular la colisión con las monedas
+function ColicionMonedas(pj, coin){
+  for(var i = 0; i < coin.length; i++)
+  {
+    var testx = coin[i].pos.x
+    var testy = coin[i].pos.y
+
+    if (testx < pj.pos.x) {
+      testx = pj.pos.x
+    }
+    if (testx > pj.pos.x + pj.tam.w) {
+      testx = pj.pos.x + pj.tam.w
+    }
+    if (testy < pj.pos.y) {
+      testy = pj.pos.y
+    }
+    if (testy > pj.pos.y + pj.tam.h) {
+      testy = pj.pos.y + pj.tam.h
+    }
+
+    var difx = coin[i].pos.x - testx
+    var dify = coin[i].pos.y - testy
+    var distancia = sqrt(difx*difx+dify*dify)
+
+    if (distancia < coin[i].radio && coin[i].active) {
+      Puntuacion += 1
+      coin[i].active = false
+    }
+  }
+}
+
+// Detecto cuando se tocó una tecla
+function keyPressed() {
+  // Pregunto si la tecla presionada fue la Flecha hacia arriba o la W
+  if (keyCode == UP_ARROW || keyCode == 87) {
+    // Si el personaje no está en el aire, salto
+    if (!pj.midAir) {
+      saltar()
+    } 
+    else 
+    {
+      // Si está en el aire, pero el CoyoteTime está activo, salto
+      if (pj.contadorCoyoteTime > 0) 
+      {
+        saltar()
+      } 
+      // Si el coyote no está activo, le asigno el bufferTime
+      else 
+      {
+        pj.contadorBufferTime = pj.bufferTime
+      }
+    }
+  }
+}
+
+// Salto con el personaje
+function saltar()
+{
+  pj.vel.y = -saltoActual;
+  pj.contadorCoyoteTime = 0
+  pj.contadorBufferTime = 0
+}
+
+// Funcion donde detectamos la colisión con los Rectángulos Azules que te empujan
+
+function ColicionAceleracion(pj, obj, dt, camara){
+  for(var j = 0; j < obj.length; j++)
+  {
+    if(areaOcupada(obj[j].pos.x, obj[j].pos.y, obj[j].tam.w, obj[j].tam.h, "impulso") && 
+      obj[j].active){
+      obj[j].active = false
+      pj.vel.x = 300
+      camara.vel.x = 300
+    }   
+  }
+}
+
+// Funcion donde detectamos la colisión con los Rectángulos Verdes que te realentizan
+
+function ColicionSlow(pj, obj, dt, camara)
+{
+  for(var j = 0; j < obj.length; j++)
+  {
+    if(areaOcupada(obj[j].pos.x, obj[j].pos.y, obj[j].tam.w, obj[j].tam.h, "slow") &&
+      obj[j].active){
+      obj[j].active = false
+      pj.vel.x = 100
+      camara.vel.x = 100
+    }   
+  }
+
+}
