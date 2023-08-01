@@ -7,9 +7,13 @@
     - Random Generated Platforms
     - Scoring System
     - Precise Collisions
+    - Crouch Botton
+    - Object Above Detection
     
-  To play this game open a P5.js enviroment (Going to https://editor.p5js.org/),       copy all the code below and push the play button
+  To play this game open a P5.js enviroment (Going to https://editor.p5js.org/),       
+  copy all the code below and push the play button
 */
+
 
 // Cuadrado del Personaje
 var pj = {
@@ -23,6 +27,7 @@ var pj = {
   contadorCoyoteTime: 0,
   bufferTime: 0.3,
   contadorBufferTime: 0,
+  crouched: false
 }
 
 // Mapa de juego, plataforma y obstáculos
@@ -185,6 +190,37 @@ function draw() {
     {
       pj.midAir = true
     }
+    
+    
+    //AGREGADO FINAL DALBENE
+
+    if(keyIsDown (DOWN_ARROW)){
+      pj.tam.h = 20
+      pj.crouched = true
+      console.log("agachado")
+    }
+    
+    //Agregada restricción para evitar "volar" - areaOcupada(pj.pos.x, pj.pos.y, pj.tam.w, pj.tam.h + 2, "caja")
+    else if (pj.tam.h < 40 && !areaOcupada(pj.pos.x, pj.pos.y-20, pj.tam.w, 40, "caja") &&   
+             areaOcupada(pj.pos.x, pj.pos.y, pj.tam.w, pj.tam.h + 2, "caja")) {
+      pj.tam.h = 40 
+      pj.pos.y = pj.pos.y - 20
+      pj.crouched = false
+      
+      console.log("parado")
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
   
     // Empujon de "Ayuda" para el jugador si se traba, pero logra salir
     if(pj.pos.x < camara.pos.x) {
@@ -333,7 +369,7 @@ function movimientoPersonaje(obj, dt)
     obj.contadorCoyoteTime = obj.coyoteTime
     obj.midAir = false
     obj.vel.y = 0
-    if (obj.contadorBufferTime > 0) {
+    if (obj.contadorBufferTime > 0 && !pj.crouched) {
       saltar()
     }
   }
@@ -409,6 +445,7 @@ function generarPowerUps(PowerUps, caja)
     else
     {
       // Si la hay, lo aviso y "reinicio" esa vuelta
+      console.log("Encontre un powerUp en mi lugar")
       i--
     }
   }
@@ -434,6 +471,7 @@ function generarPowerUps(PowerUps, caja)
     else
     {
       // Si la hay, lo aviso y "reinicio" esa vuelta
+      console.log("Encontre un powerUp en mi lugar")
       j--
     }
   }
@@ -580,14 +618,16 @@ function keyPressed() {
   // Pregunto si la tecla presionada fue la Flecha hacia arriba o la W
   if (keyCode == UP_ARROW || keyCode == 87) {
     // Si el personaje no está en el aire, salto
-    if (!pj.midAir) {
+    if (!pj.midAir && !pj.crouched) {
       saltar()
+      console.log("salte")
     } 
     else 
     {
       // Si está en el aire, pero el CoyoteTime está activo, salto
-      if (pj.contadorCoyoteTime > 0) 
+      if (pj.contadorCoyoteTime > 0 && !pj.crouched) 
       {
+        console.log("salte")
         saltar()
       } 
       // Si el coyote no está activo, le asigno el bufferTime
@@ -636,3 +676,4 @@ function ColicionSlow(pj, obj, dt, camara)
   }
 
 }
+
